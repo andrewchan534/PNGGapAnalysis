@@ -79,7 +79,7 @@ http://localhost:8765/
 - Genesys accessions: 2,953
 - Genesys accessions with coordinates inside PNG bounding box: 786
 - Recommended collection site cells: 300
-- Recommended crop/genus candidates: 111
+- Recommended crop/genus candidates: 110
 
 ## Mapping Logic
 
