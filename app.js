@@ -1,4 +1,4 @@
-const APP_VERSION = "20260629-empty-checks";
+const APP_VERSION = "20260629-vegetable-genera";
 
 const state = {
   summary: null,
