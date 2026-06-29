@@ -1,7 +1,31 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
 Interactive local website for exploring Papua New Guinea biodiversity records,
-Genesys PGR accession holdings, and CMIP6 future climate layers.
+Genesys PGR accession holdings, and CMIP6 future climate layers for vegetable
+crop and locally important food-plant collecting gap analysis.
+
+## Purpose and Screening Preference
+
+This dashboard is intentionally **not** an unbiased hotspot map for all Papua
+New Guinea biodiversity. It is a targeted collecting-planning tool for
+pre-selected vegetable crop, edible fern, and locally important food-plant
+taxa.
+
+The target list is defined in `scripts/prepare_site_data.py` with three levels:
+
+- `VEGETABLE_SPECIES`: exact target species.
+- `VEGETABLE_GENERA`: genus-level targets. Names written as `spp.` are treated
+  as genus-level targets, for example `Cucumis spp.` means the whole `Cucumis`
+  genus.
+- `VEGETABLE_FAMILIES`: family-level targets, currently including
+  `Cucurbitaceae` and `Malvaceae`.
+
+Only GBIF and Genesys records matching those target species, genera, or
+families are used for the vegetable collecting recommendation layers. Taxa that
+do not match the target list are excluded from the collecting-priority logic
+even if they are common or biologically important in PNG. This design reflects a
+genebank collecting preference for vegetable genetic resources, not a neutral
+survey of all biodiversity.
 
 ## Inputs
 
@@ -16,12 +40,13 @@ Genesys PGR accession holdings, and CMIP6 future climate layers.
 - Aggregated data: `site/data/`
 - Downloaded climate rasters: `site/data/climate/`
 
-The first climate build uses WorldClim CMIP6 10-minute GeoTIFFs:
+The climate build uses WorldClim CMIP6 10-minute GeoTIFFs:
 
 - Model: `ACCESS-CM2`
 - Scenario: `SSP245`
 - Period: `2041-2060`
-- Layers: annual precipitation and mean monthly maximum temperature
+- Layers: annual precipitation, mean monthly maximum temperature, and mean
+  monthly minimum temperature
 
 The browser reads the local GeoTIFF files with `geotiff.js` and renders the
 Papua New Guinea crop as a Leaflet image overlay.
@@ -53,36 +78,75 @@ http://localhost:8765/
 - GBIF species names: 13,182
 - Genesys accessions: 2,953
 - Genesys accessions with coordinates inside PNG bounding box: 786
-- Recommended collection site cells: 194
-- Recommended crop/genus candidates: 120
+- Recommended collection site cells: 300
+- Recommended crop/genus candidates: 111
+
+## Mapping Logic
+
+All point-based biodiversity and genebank records are aggregated into 0.25
+degree grid cells within the PNG bounding box (`south=-12`, `west=140`,
+`north=0`, `east=160`). The grid is used to compare three evidence streams at a
+common spatial resolution:
+
+- GBIF occurrence density and species richness for target vegetable taxa.
+- Genesys PGR accession density for coordinate-backed holdings.
+- Climate conditions and future-minus-current climate-change rasters.
+
+GBIF and Genesys grids use counts in each 0.25 degree cell. Genesys accession
+points are also available as a separate point layer. The point layer uses all
+coordinate-backed Genesys accessions inside the PNG bounding box.
+
+## Climate Logic
+
+The selectable CMIP6 climate layer shows future climate from WorldClim CMIP6
+`ACCESS-CM2 / SSP245 / 2041-2060`. The climate-change hotspot layer is a
+separate raster overlay that compares current and future climate:
+
+- Rainfall change = future annual precipitation minus WorldClim v2.1 baseline
+  annual precipitation.
+- Annual mean temperature change = future `(tmin + tmax) / 2` minus WorldClim
+  v2.1 baseline `tavg`.
+
+The climate-change hotspot is purely climate based. It does not use Genesys,
+GBIF site polygons, or collection gap scores. It renders future-minus-current
+climate as a continuous raster overlay. Rainfall change uses a divergent color
+scale for decreases and increases; temperature change uses a low-to-high
+increase scale. These overlays are precomputed by
+`scripts/precompute_climate_change.py` into:
+
+- `site/data/climate/change_precip.png`
+- `site/data/climate/change_temp.png`
+
+Precomputing these layers keeps the browser from processing the full baseline
+GeoTIFF stack interactively.
 
 ## Recommendation Logic
 
-Recommended collection sites are 0.25 degree grid cells ranked by high
-vegetable-target GBIF record/species density and low vegetable-target Genesys
-coordinate-backed accession density in the same grid cell. Cells with no
-vegetable Genesys accessions receive the strongest priority when GBIF evidence
-is high.
+Recommended collection sites are 0.25 degree grid cells ranked by high target
+vegetable GBIF evidence and low target vegetable Genesys evidence in the same
+cell. Cells with no or few vegetable Genesys accessions receive higher
+collection priority when GBIF evidence is strong.
 
-The climate-risk view further ranks uncollected cells by climate change over
-the next planning horizon. The current implementation compares WorldClim v2.1
-baseline climate with WorldClim CMIP6 `ACCESS-CM2 / SSP245 / 2041-2060`.
-Rainfall change is future annual precipitation minus baseline annual
-precipitation. Annual mean temperature change is future `(tmin + tmax) / 2`
-minus baseline `tavg`.
+The `Suggested Vegetable Collection Sites` section contains three stackable
+heatmap views:
 
-The website lets the user choose:
+- **GBIF-rich, Genesys-poor sites**: high target vegetable GBIF record/species
+  evidence, discounted by Genesys accessions in the same grid cell.
+- **High warming, Genesys-poor sites**: high annual mean temperature increase,
+  discounted by Genesys collection coverage.
+- **Extreme rainfall-change, Genesys-poor sites**: large positive or negative
+  rainfall change, discounted by Genesys collection coverage.
 
-- Rainfall change or annual mean temperature change for site ranking.
-- How many hotspot species to show for each recommended collection cell.
+A fourth **Weighted collection priority** layer combines those three normalized
+scores. Users can set separate weights for:
 
-The climate-change hotspot is shown as an independent raster overlay. It is
-purely climate based and does not use Genesys, GBIF site polygons, or collection
-gap scores. It renders future climate minus current climate as a continuous
-blue-to-red heatmap. The overlays are precomputed by
-`scripts/precompute_climate_change.py` into `site/data/climate/change_precip.png`
-and `site/data/climate/change_temp.png`, so the browser does not need to process
-large GeoTIFF stacks interactively.
+- GBIF gap evidence.
+- Temperature-change evidence.
+- Rainfall-change evidence.
+
+The combined priority score is a weighted average of the three component
+scores. Changing the sliders immediately changes the weighted layer and the
+ranked site preview table.
 
 Recommended vegetables are ranked at genus level because both GBIF and Genesys
 carry usable genus fields. The score rewards high vegetable-target GBIF
@@ -99,12 +163,37 @@ Cucurbitaceae vegetables including pumpkin/squash and wax gourd, amaranths,
 edible Solanum vegetables, selected edible ferns, and additional locally
 important vegetable taxa requested for Papua New Guinea screening.
 
-The `Suggested Vegetable Collection Sites` section contains three stackable
-heatmap views: GBIF-rich/Genesys-poor vegetable sites, high-warming/Genesys-poor
-vegetable sites, and extreme-rainfall-change/Genesys-poor vegetable sites. A
-fourth weighted-priority layer combines those three normalized scores with
-user-controlled weights, producing a final suggested vegetable collecting
-hotspot layer.
+## Website Features
+
+- **Layer controls**: all map layers start unchecked when the page is opened or
+  refreshed. Users choose which layers to display.
+- **CMIP6 climate layer**: selectable future annual precipitation, maximum
+  temperature, or minimum temperature raster, with opacity control.
+- **Climate change hotspot**: independent rainfall-change or annual mean
+  temperature-change raster, with opacity control and legend.
+- **GBIF hotspot grid**: grid-cell density of GBIF records and richness.
+- **Genesys holding grid**: grid-cell density of Genesys PGR accessions.
+- **Genesys accession points**: full coordinate-backed accession point layer.
+- **Suggested Vegetable Collection Sites**: three stackable evidence layers plus
+  the weighted final recommendation layer.
+- **Weighted controls**: sliders for GBIF gap, temperature change, and rainfall
+  change weights.
+- **Recommended Vegetables**: genus-level table showing GBIF and Genesys
+  representation for target vegetable taxa.
+- **Suggested Site Preview**: ranked GPS locations sorted by the current
+  weighted priority score. The table retains likely target species for each
+  collection cell and can be downloaded as an Excel file.
+- **All Genus Gaps**: broader genus-level gap table for review.
+- **Sources**: data provenance links and notes for GBIF, Genesys, WorldClim
+  CMIP6, and IPCC Atlas provenance.
+
+## Interpretation Notes
+
+High-priority cells should be read as **screening candidates**, not automatic
+field-collection decisions. Before field work, the list still needs taxonomic
+review, local partner input, permit checks, site accessibility review, and
+assessment of whether the GBIF records represent wild relatives, cultivated
+material, herbarium records, or other occurrence types.
 
 ## Source Notes
 
