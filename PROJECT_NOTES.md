@@ -40,6 +40,35 @@ survey of all biodiversity.
 - Aggregated data: `site/data/`
 - Downloaded climate rasters: `site/data/climate/`
 
+## Deployment Layout
+
+The GitHub deployment package is structured so the site can live in its own
+folder under a shared web root:
+
+```text
+www/html/
+  PNGGapAnalysis/
+    index.html
+    PNGGapAnalysis.html
+    PNGGapAnalysis.app.js
+    PNGGapAnalysis.styles.css
+    data/
+```
+
+This avoids collisions with other web tools in the same `www/html` directory,
+such as `seedcounter.html` and any other project-level JavaScript or CSS files.
+The preferred public URL is:
+
+```text
+https://genebank.worldveg.org/PNGGapAnalysis/
+```
+
+The direct HTML URL is:
+
+```text
+https://genebank.worldveg.org/PNGGapAnalysis/PNGGapAnalysis.html
+```
+
 The climate build uses WorldClim CMIP6 10-minute GeoTIFFs:
 
 - Model: `ACCESS-CM2`

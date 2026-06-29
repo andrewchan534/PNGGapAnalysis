@@ -11,15 +11,24 @@ genus-level `spp.` groups, and target families.
 ## Server Deployment
 
 Place or pull this repository into the web root that serves
-`https://genebank.worldveg.org/`, then open:
+`https://genebank.worldveg.org/`, then copy the `PNGGapAnalysis/` folder into
+the web root and open:
 
 ```text
-https://genebank.worldveg.org/PNGGapAnalysis.html
+https://genebank.worldveg.org/PNGGapAnalysis/
 ```
 
-The dashboard expects these files and folders to stay beside
-`PNGGapAnalysis.html`:
+Direct file URL:
 
+```text
+https://genebank.worldveg.org/PNGGapAnalysis/PNGGapAnalysis.html
+```
+
+The dashboard expects these files and folders to stay together inside the
+`PNGGapAnalysis/` folder:
+
+- `index.html`
+- `PNGGapAnalysis.html`
 - `PNGGapAnalysis.app.js`
 - `PNGGapAnalysis.styles.css`
 - `data/`
