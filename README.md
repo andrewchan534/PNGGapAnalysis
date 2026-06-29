@@ -20,8 +20,8 @@ https://genebank.worldveg.org/PNGGapAnalysis.html
 The dashboard expects these files and folders to stay beside
 `PNGGapAnalysis.html`:
 
-- `app.js`
-- `styles.css`
+- `PNGGapAnalysis.app.js`
+- `PNGGapAnalysis.styles.css`
 - `data/`
 
 The repository intentionally excludes the large WorldClim baseline source

@@ -1,4 +1,4 @@
-const APP_VERSION = "20260629-no-null-genus";
+const APP_VERSION = "20260629-keep-null-genus";
 
 const state = {
   summary: null,
