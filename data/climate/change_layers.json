@@ -1,0 +1,35 @@
+{
+  "version": "20260629-temp15",
+  "bounds": [
+    [
+      -12.0,
+      140.0
+    ],
+    [
+      0.0,
+      160.0
+    ]
+  ],
+  "layers": {
+    "precip": {
+      "label": "Rainfall change",
+      "image": "data/climate/change_precip.png",
+      "unit": "mm/year",
+      "range": [
+        -215.7,
+        643.5
+      ],
+      "method": "ACCESS-CM2 SSP245 2041-2060 annual precipitation minus WorldClim v2.1 baseline annual precipitation"
+    },
+    "temp": {
+      "label": "Annual mean temperature change",
+      "image": "data/climate/change_temp.png",
+      "unit": "deg C",
+      "range": [
+        1.5,
+        2.29
+      ],
+      "method": "ACCESS-CM2 SSP245 2041-2060 mean((tmin+tmax)/2) minus WorldClim v2.1 baseline tavg"
+    }
+  }
+}
