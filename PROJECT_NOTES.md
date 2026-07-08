@@ -121,9 +121,8 @@ common spatial resolution:
 - Genesys PGR accession density for coordinate-backed holdings.
 - Climate conditions and future-minus-current climate-change rasters.
 
-GBIF and Genesys grids use counts in each 0.25 degree cell. Genesys accession
-points are also available as a separate point layer. The point layer uses all
-coordinate-backed Genesys accessions inside the PNG bounding box.
+GBIF and Genesys grids use counts in each 0.25 degree cell after PNG bounding-box
+filtering.
 
 ## Climate Logic
 
@@ -177,42 +176,45 @@ The combined priority score is a weighted average of the three component
 scores. Changing the sliders immediately changes the weighted layer and the
 ranked site preview table.
 
-Recommended vegetables are ranked at genus level because both GBIF and Genesys
-carry usable genus fields. The score rewards high vegetable-target GBIF
-occurrence volume and broad geographic spread, then discounts genera already
-well represented in Genesys. The vegetable target list is defined in
-`scripts/prepare_site_data.py` using `VEGETABLE_SPECIES`, `VEGETABLE_GENERA`,
-and `VEGETABLE_FAMILIES`; names written as `spp.` are treated as genus-level
-targets. This is a screening list for planning, not a substitute for taxonomic
-review, permit checks, local partner input, or field feasibility assessment.
+Recommended taxa are ranked at genus plus species level. The score rewards high
+GBIF occurrence volume and broad geographic spread, then discounts taxa already
+well represented in Genesys. The page includes a **WorldVeg crop species of
+focus** switch. When the switch is off, all GBIF and Genesys taxa are included
+in screening and ranking. When the switch is on, GBIF, Genesys, suggested
+collection layers, Recommended Vegetables, and Suggested Site Preview are
+restricted to the taxa listed in `png_hightlight species.xlsx` sheet `merged`.
 
-The current vegetable target list explicitly includes soybean, mung bean,
-cowpea, pigeon pea, winged bean, selected mallow/hibiscus vegetables,
-Cucurbitaceae vegetables including pumpkin/squash and wax gourd, amaranths,
-edible Solanum vegetables, selected edible ferns, and additional locally
-important vegetable taxa requested for Papua New Guinea screening.
+Names written as `spp.` in the highlighted list are treated as genus-level
+targets. Infraspecific names such as `var.` and `subsp.` are folded into the
+same binomial species for matching and ranking. This is a screening list for
+planning, not a substitute for taxonomic review, permit checks, local partner
+input, or field feasibility assessment.
 
 ## Website Features
 
 - **Layer controls**: all map layers start unchecked when the page is opened or
   refreshed. Users choose which layers to display.
+- **WorldVeg crop species of focus switch**: toggles the analysis between all
+  taxa and only the crop taxa listed in `png_hightlight species.xlsx` sheet
+  `merged`.
 - **CMIP6 climate layer**: selectable future annual precipitation, maximum
   temperature, or minimum temperature raster, with opacity control.
+- **Soil map**: selectable Soil pH, cation exchange capacity, and USDA soil
+  texture class overlays built from local GeoTIFF files in the project folder.
 - **Climate change hotspot**: independent rainfall-change or annual mean
   temperature-change raster, with opacity control and legend.
 - **GBIF hotspot grid**: grid-cell density of GBIF records and richness.
 - **Genesys holding grid**: grid-cell density of Genesys PGR accessions.
-- **Genesys accession points**: full coordinate-backed accession point layer.
 - **Suggested Vegetable Collection Sites**: three stackable evidence layers plus
   the weighted final recommendation layer.
 - **Weighted controls**: sliders for GBIF gap, temperature change, and rainfall
   change weights.
-- **Recommended Vegetables**: genus-level table showing GBIF and Genesys
-  representation for target vegetable taxa.
+- **Recommended Vegetables**: species-level table with separate Genus and
+  Species columns, showing GBIF and Genesys representation for target vegetable
+  taxa and downloadable as an Excel file.
 - **Suggested Site Preview**: ranked GPS locations sorted by the current
   weighted priority score. The table retains likely target species for each
   collection cell and can be downloaded as an Excel file.
-- **All Genus Gaps**: broader genus-level gap table for review.
 - **Sources**: data provenance links and notes for GBIF, Genesys, WorldClim
   CMIP6, and IPCC Atlas provenance.
 

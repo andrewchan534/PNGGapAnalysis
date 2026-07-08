@@ -1,12 +1,16 @@
-const APP_VERSION = "20260629-keep-null-genus";
+const APP_VERSION = "20260707-soil-texture";
 
 const state = {
   summary: null,
   map: null,
+  activeMode: "all",
+  suggestedLayerSelection: "",
+  datasets: {},
   layers: {},
   climateCache: new Map(),
   changeCache: new Map(),
   changeLayers: null,
+  soilLayers: null,
   suggestedLayers: null,
   gapRows: [],
   cropRows: [],
@@ -19,6 +23,20 @@ const state = {
 const fmt = new Intl.NumberFormat("en-US");
 const bounds = [[-12, 140], [0, 160]];
 const SUGGESTED_LAYER_KEYS = ["gbif_genesys_gap", "temp_genesys_gap", "rain_extreme_genesys_gap"];
+const SOIL_LAYER_STYLES = {
+  soil_ph: {
+    className: "soil-ph",
+    note: "Lower values are more acidic; colors use the 2-98% range for contrast.",
+  },
+  cation_exchange_capacity: {
+    className: "soil-cec",
+    note: "Higher values indicate greater cation exchange capacity; colors use the 2-98% range for contrast.",
+  },
+  soil_texture_usda: {
+    className: "soil-texture",
+    note: "USDA soil texture classes calculated from sand, silt, and clay fractions.",
+  },
+};
 const SUGGESTED_LAYER_STYLES = {
   gbif_genesys_gap: {
     legend: "GBIF-rich, Genesys-poor",
@@ -58,6 +76,8 @@ function formatLegendValue(value, unit) {
   if (!Number.isFinite(value)) return "-";
   if (unit === "mm/year") return `${Math.round(value)} mm/year`;
   if (unit === "deg C") return `${value.toFixed(1)} deg C`;
+  if (unit === "pH") return `pH ${value.toFixed(1)}`;
+  if (unit === "cmol(+)/kg") return `${value.toFixed(1)} cmol(+)/kg`;
   return `${Math.round(value * 10) / 10} ${unit}`;
 }
 
@@ -79,6 +99,10 @@ function clearCheckedInputs() {
   document.querySelectorAll('input[type="checkbox"]').forEach(input => {
     input.checked = false;
   });
+}
+
+function activeData() {
+  return state.datasets[state.activeMode] || state.datasets.all;
 }
 
 function setKpis(summary) {
@@ -103,9 +127,10 @@ function initMap() {
 }
 
 function makeGridLayer(geojson, mode) {
-  const max = Math.max(...geojson.features.map(f => f.properties.records));
+  const features = geojson?.features || [];
+  const max = Math.max(...features.map(f => f.properties.records), 1);
   const rgb = mode === "gbif" ? [216, 93, 63] : [34, 107, 140];
-  return L.geoJSON(geojson, {
+  return L.geoJSON(geojson || { type: "FeatureCollection", features: [] }, {
     style: feature => ({
       color: mode === "gbif" ? "#9b3b2f" : "#1c5874",
       weight: 0.55,
@@ -247,7 +272,7 @@ function updateWeightLabels() {
 }
 
 function buildWeightedSuggestedLayerDef() {
-  const layers = state.suggestedLayers?.layers || {};
+  const layers = activeData()?.suggestedLayers?.layers || {};
   const base = layers.gbif_genesys_gap?.geojson?.features || [];
   const weights = getSuggestedWeights();
   const totalWeight = Object.values(weights).reduce((sum, value) => sum + Math.max(0, value), 0);
@@ -324,11 +349,16 @@ function makeWeightedSuggestedLayer(layerDef) {
   });
 }
 
-function selectedSuggestedLayerKeys() {
-  return Array.from(document.querySelectorAll(".suggestedLayerToggle"))
-    .filter(input => input.checked)
-    .map(input => input.dataset.layerKey)
-    .filter(key => SUGGESTED_LAYER_KEYS.includes(key));
+function selectedSuggestedLayerKey() {
+  return state.suggestedLayerSelection || document.querySelector('input[name="suggestedSiteLayer"]:checked')?.value || "";
+}
+
+function setSuggestedLayerSelection(value) {
+  state.suggestedLayerSelection = value;
+  document.querySelectorAll('input[name="suggestedSiteLayer"]').forEach(input => {
+    input.checked = input.value === value;
+  });
+  renderSuggestedSiteLayers();
 }
 
 function renderSuggestedSiteLayers() {
@@ -343,35 +373,33 @@ function renderSuggestedSiteLayers() {
   state.layers.suggestedSiteComponents = {};
   state.layers.suggestedComposite = null;
   const status = document.getElementById("suggestedSiteStatus");
-  const layers = state.suggestedLayers?.layers || {};
+  const layers = activeData()?.suggestedLayers?.layers || {};
   if (!Object.keys(layers).length) {
     if (status) status.textContent = "Suggested-site layer is not available.";
     return;
   }
 
-  const selectedKeys = selectedSuggestedLayerKeys();
-  selectedKeys.forEach(key => {
-    const layerDef = layers[key];
-    if (!layerDef) return;
-    const layer = makeSuggestedSiteLayer(layerDef, key).addTo(state.map);
-    layer.bringToFront();
-    state.layers.suggestedSiteComponents[key] = layer;
-  });
+  const selectedKey = selectedSuggestedLayerKey();
+  if (SUGGESTED_LAYER_KEYS.includes(selectedKey)) {
+    const layerDef = layers[selectedKey];
+    if (layerDef) {
+      const layer = makeSuggestedSiteLayer(layerDef, selectedKey).addTo(state.map);
+      layer.bringToFront();
+      state.layers.suggestedSiteComponents[selectedKey] = layer;
+    }
+  }
 
-  const showComposite = document.getElementById("toggleSuggestedComposite")?.checked;
-  if (showComposite) {
+  if (selectedKey === "weighted_collection_priority") {
     const weightedDef = buildWeightedSuggestedLayerDef();
-    state.layers.suggestedComposite = makeWeightedSuggestedLayer(weightedDef).addTo(state.map);
-    state.layers.suggestedComposite.bringToFront();
+    const layer = makeWeightedSuggestedLayer(weightedDef).addTo(state.map);
+    layer.bringToFront();
+    state.layers.suggestedComposite = layer;
   }
 
   if (status) {
-    const active = [
-      ...selectedKeys.map(key => SUGGESTED_LAYER_STYLES[key].legend),
-      ...(showComposite ? [SUGGESTED_LAYER_STYLES.weighted_collection_priority.legend] : []),
-    ];
-    status.textContent = active.length
-      ? `Showing ${active.join("; ")}.`
+    const label = SUGGESTED_LAYER_STYLES[selectedKey]?.legend;
+    status.textContent = label
+      ? `Showing ${label}.`
       : "All suggested collection layers are hidden.";
   }
   updateLegend();
@@ -531,38 +559,66 @@ function climateScoreForFeature(feature, metric) {
   return metric === "temp" ? Math.abs(risk.temp) : Math.abs(risk.precip);
 }
 
-function renderGapTable() {
-  const q = document.getElementById("gapSearch").value.trim().toLowerCase();
-  const rows = state.gapRows
-    .filter(row => !q || row.genus.toLowerCase().includes(q))
-    .slice(0, 42);
-  const html = rows.map(row => `
-    <tr data-status="${row.status}">
-      <td title="${row.status}">${row.genus}</td>
-      <td>${fmt.format(row.gbif_records)}</td>
-      <td>${fmt.format(row.genesys_accessions)}</td>
-    </tr>
-  `).join("");
-  document.getElementById("gapTable").innerHTML = html;
-}
-
 function renderCropTable() {
   const q = document.getElementById("cropSearch").value.trim().toLowerCase();
   const rows = state.cropRows
-    .filter(row => !q || row.genus.toLowerCase().includes(q))
-    .slice(0, 48);
+    .filter(row => {
+      const genus = String(row.genus ?? "").toLowerCase();
+      const species = String(row.species ?? "").toLowerCase();
+      return !q || genus.includes(q) || species.includes(q) || `${genus} ${species}`.includes(q);
+    });
   document.getElementById("cropTable").innerHTML = rows.map(row => `
     <tr data-status="${row.status}">
-      <td title="${row.recommendation}; score ${row.priority_score}">${row.genus}</td>
+      <td title="${row.recommendation}; score ${row.priority_score}">${row.genus ?? "null"}</td>
+      <td>${row.species ?? "-"}</td>
       <td>${fmt.format(row.gbif_records)}</td>
       <td>${fmt.format(row.genesys_accessions)}</td>
     </tr>
   `).join("");
+}
+
+function downloadCropTable() {
+  const q = document.getElementById("cropSearch").value.trim().toLowerCase();
+  const rows = state.cropRows
+    .filter(row => {
+      const genus = String(row.genus ?? "").toLowerCase();
+      const species = String(row.species ?? "").toLowerCase();
+      return !q || genus.includes(q) || species.includes(q) || `${genus} ${species}`.includes(q);
+    })
+    .map((row, index) => ({
+      Rank: index + 1,
+      Genus: row.genus ?? "null",
+      Species: row.species ?? "",
+      "GBIF records": row.gbif_records,
+      "GBIF grid cells": row.gbif_cells,
+      "Genesys accessions": row.genesys_accessions,
+      "Priority score": Number((row.priority_score || 0).toFixed(6)),
+      Status: row.status,
+      Recommendation: row.recommendation,
+    }));
+  if (window.XLSX) {
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, "Recommended vegetables");
+    XLSX.writeFile(book, `recommended_vegetable_species_${APP_VERSION}.xlsx`);
+    return;
+  }
+  const headers = Object.keys(rows[0] || {});
+  const htmlRows = [
+    `<tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr>`,
+    ...rows.map(row => `<tr>${headers.map(header => `<td>${String(row[header] ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")}</td>`).join("")}</tr>`),
+  ].join("");
+  const blob = new Blob([`<table>${htmlRows}</table>`], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `recommended_vegetable_species_${APP_VERSION}.xls`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 function weightedPriorityRows() {
   const speciesLimit = Number(document.getElementById("speciesLimit")?.value || 6);
-  const weightedDef = state.suggestedLayers ? buildWeightedSuggestedLayerDef() : null;
+  const weightedDef = activeData()?.suggestedLayers ? buildWeightedSuggestedLayerDef() : null;
   const features = weightedDef?.geojson?.features || [];
   return features
     .map(feature => {
@@ -653,7 +709,7 @@ function sortRiskSites() {
   if (status && !state.changeGrids) {
     status.textContent = "Loading future-minus-current climate raster...";
   }
-  const rows = state.rawSiteRows
+  const rows = (activeData()?.siteRows || [])
     .filter(row => row.genesys_accessions === 0)
     .map(row => {
       const risk = state.changeGrids ? climateChangeForPoint(row.center_lat, row.center_lon) : null;
@@ -683,6 +739,37 @@ function rebuildSiteLayer() {
   if (visible) state.layers.sites.addTo(state.map);
 }
 
+function rebuildModeLayers() {
+  const data = activeData();
+  if (!data || !state.map) return;
+  for (const layerName of ["gbif", "genesys"]) {
+    const layer = state.layers[layerName];
+    if (layer && state.map.hasLayer(layer)) state.map.removeLayer(layer);
+  }
+  state.layers.gbif = makeGridLayer(data.gbifGrid, "gbif");
+  state.layers.genesys = makeGridLayer(data.genesysGrid, "genesys");
+  state.rawSiteRows = data.siteRows;
+  state.gapRows = data.gapRows || state.gapRows;
+  state.siteRows = data.siteRows.filter(row => row.genesys_accessions === 0);
+  state.cropRows = data.cropRows;
+  state.siteGrid = data.siteGrid;
+  state.suggestedLayers = data.suggestedLayers;
+  renderCropTable();
+  sortRiskSites();
+  syncLayerVisibility();
+}
+
+function setCropMode(mode) {
+  state.activeMode = mode;
+  const status = document.getElementById("cropModeStatus");
+  if (status) {
+    status.textContent = mode === "highlight"
+      ? `Using WorldVeg crop species of focus (${state.summary?.recommendations?.highlight_crop_count || 0} recommended taxa).`
+      : "Using all GBIF and Genesys taxa for screening.";
+  }
+  rebuildModeLayers();
+}
+
 function rebuildRiskLayer() {
   if (!state.map) return;
   const visible = !document.getElementById("toggleRisk") || document.getElementById("toggleRisk").checked;
@@ -709,6 +796,12 @@ function populateSources(summary) {
 function populateClimateSelect(summary) {
   const select = document.getElementById("climateSelect");
   select.innerHTML = summary.climate.layers.map(layer => `<option value="${layer.id}">${layer.label}</option>`).join("");
+}
+
+function populateSoilSelect() {
+  const select = document.getElementById("soilSelect");
+  const layers = state.soilLayers?.layers || [];
+  select.innerHTML = layers.map(layer => `<option value="${layer.id}">${layer.label}</option>`).join("");
 }
 
 async function readCroppedRasters(path, samples = null) {
@@ -929,11 +1022,38 @@ async function renderClimateLayer(layerMeta) {
   }
 }
 
+function renderSoilLayer() {
+  if (state.layers.soil && state.map.hasLayer(state.layers.soil)) {
+    state.map.removeLayer(state.layers.soil);
+  }
+  state.layers.soil = null;
+  const status = document.getElementById("soilStatus");
+  const selected = state.soilLayers?.layers?.find(layer => layer.id === document.getElementById("soilSelect")?.value);
+  if (!document.getElementById("toggleSoil")?.checked) {
+    if (status) status.textContent = selected ? `${selected.label}; hidden` : "Soil layer is hidden.";
+    updateLegend();
+    return;
+  }
+  if (!selected) {
+    if (status) status.textContent = "Soil layer is not available.";
+    updateLegend();
+    return;
+  }
+  const opacity = Number(document.getElementById("soilOpacity")?.value || 0.68);
+  state.layers.soil = L.imageOverlay(`${selected.image}?v=${APP_VERSION}`, selected.bounds, { opacity, interactive: false }).addTo(state.map);
+  state.layers.soil.bringToFront();
+  if (status) {
+    status.textContent = selected.categories
+      ? `${selected.label}; ${selected.categories.length} classes`
+      : `${selected.label}; ${formatLegendValue(selected.range[0], selected.unit)} to ${formatLegendValue(selected.range[1], selected.unit)}`;
+  }
+  updateLegend();
+}
+
 function syncLayerVisibility() {
   const pairs = [
     ["toggleGbif", "gbif"],
     ["toggleGenesys", "genesys"],
-    ["togglePoints", "points"],
   ];
   for (const [control, layerName] of pairs) {
     const checked = document.getElementById(control).checked;
@@ -944,6 +1064,7 @@ function syncLayerVisibility() {
   }
   const selected = state.summary.climate.layers.find(layer => layer.id === document.getElementById("climateSelect").value);
   renderClimateLayer(selected);
+  renderSoilLayer();
   renderClimateChangeHotspot();
   renderSuggestedSiteLayers();
 }
@@ -953,6 +1074,9 @@ function updateLegend() {
   const climateVisible = document.getElementById("toggleClimate")?.checked;
   const changeMetric = document.getElementById("changeMetric")?.value || "precip";
   const changeOverlay = state.changeLayers?.layers?.[changeMetric] || (state.changeGrids ? makeChangeOverlay(changeMetric) : null);
+  const selectedSoil = state.soilLayers?.layers?.find(layer => layer.id === document.getElementById("soilSelect")?.value);
+  const soilVisible = document.getElementById("toggleSoil")?.checked;
+  const soilStyle = selectedSoil ? (SOIL_LAYER_STYLES[selectedSoil.id] || SOIL_LAYER_STYLES.soil_ph) : null;
   const changeTitle = changeMetric === "temp" ? "Temperature change" : "Rainfall change";
   const climateTitle = selected?.id === "precip" ? "Rainfall" : "Temperature";
   const climateRange = selected?.range
@@ -973,6 +1097,17 @@ function updateLegend() {
       <span class="swatch change ${changeMetric === "temp" ? "temp" : "precip"}"></span>
       <div class="legend-note">${changeMetric === "temp" ? "Future minus current climate; pale means no change, red means increase." : "Future minus current climate; blue means decrease, red means increase."}</div>
     </div>
+    ${selectedSoil ? `
+    <div class="legend-block">
+      <div class="legend-title">${selectedSoil.label} ${soilVisible ? "" : "(hidden)"}</div>
+      ${selectedSoil.categories ? `
+      <div class="category-legend">
+        ${selectedSoil.categories.map(item => `<span><i style="background:${item.color}"></i>${item.label}</span>`).join("")}
+      </div>` : `
+      <div class="scale-row"><span>${formatLegendValue(selectedSoil.range[0], selectedSoil.unit)}</span><span>${formatLegendValue(selectedSoil.range[1], selectedSoil.unit)}</span></div>
+      <span class="swatch soil ${soilStyle.className}"></span>`}
+      <div class="legend-note">${soilStyle.note}</div>
+    </div>` : ""}
     <div class="swatch-row"><span class="swatch suggested gbif-gap"></span><span>Suggested: GBIF-rich, Genesys-poor</span></div>
     <div class="swatch-row"><span class="swatch suggested temp-gap"></span><span>Suggested: high warming, Genesys-poor</span></div>
     <div class="swatch-row"><span class="swatch suggested rain-gap"></span><span>Suggested: rainfall extreme, Genesys-poor</span></div>
@@ -984,43 +1119,83 @@ function updateLegend() {
 
 async function main() {
   clearCheckedInputs();
-  const [summary, gbifGrid, genesysGrid, points, gapRows, siteGrid, siteRows, cropRows, changeLayers, suggestedLayers] = await Promise.all([
+  const [
+    summary,
+    gbifGrid,
+    genesysGrid,
+    gapRows,
+    highlightGapRows,
+    siteGrid,
+    siteRows,
+    cropRows,
+    highlightGbifGrid,
+    highlightGenesysGrid,
+    highlightSiteGrid,
+    highlightSiteRows,
+    highlightCropRows,
+    changeLayers,
+    soilLayers,
+    suggestedLayers,
+    highlightSuggestedLayers,
+  ] = await Promise.all([
     fetchJson("data/summary.json"),
     fetchJson("data/gbif_grid.geojson"),
     fetchJson("data/genesys_grid.geojson"),
-    fetchJson("data/genesys_points.json"),
     fetchJson("data/taxa_gap.json"),
+    fetchJson("data/highlight_taxa_gap.json"),
     fetchJson("data/recommended_sites.geojson"),
     fetchJson("data/recommended_sites.json"),
     fetchJson("data/recommended_crops.json"),
+    fetchJson("data/highlight_gbif_grid.geojson"),
+    fetchJson("data/highlight_genesys_grid.geojson"),
+    fetchJson("data/highlight_recommended_sites.geojson"),
+    fetchJson("data/highlight_recommended_sites.json"),
+    fetchJson("data/highlight_recommended_crops.json"),
     fetchJson("data/climate/change_layers.json"),
+    fetchJson("data/soil_layers.json"),
     fetchJson("data/suggested_vegetable_layers.json"),
+    fetchJson("data/highlight_suggested_vegetable_layers.json"),
   ]);
 
   state.summary = summary;
   state.gapRows = gapRows;
+  state.datasets = {
+    all: { gbifGrid, genesysGrid, gapRows, siteGrid, siteRows, cropRows, suggestedLayers },
+    highlight: {
+      gbifGrid: highlightGbifGrid,
+      genesysGrid: highlightGenesysGrid,
+      gapRows: highlightGapRows,
+      siteGrid: highlightSiteGrid,
+      siteRows: highlightSiteRows,
+      cropRows: highlightCropRows,
+      suggestedLayers: highlightSuggestedLayers,
+    },
+  };
   state.rawSiteRows = siteRows;
   state.siteRows = siteRows.filter(row => row.genesys_accessions === 0);
   state.cropRows = cropRows;
   state.siteGrid = siteGrid;
   state.changeLayers = changeLayers;
+  state.soilLayers = soilLayers;
   state.suggestedLayers = suggestedLayers;
   setKpis(summary);
   populateSources(summary);
   populateClimateSelect(summary);
+  populateSoilSelect();
   initMap();
   updateLegend();
 
   state.layers.gbif = makeGridLayer(gbifGrid, "gbif").addTo(state.map);
   state.layers.genesys = makeGridLayer(genesysGrid, "genesys").addTo(state.map);
-  state.layers.points = makePointLayer(points);
   updateWeightLabels();
-  renderGapTable();
   renderCropTable();
   sortRiskSites();
 
-  document.getElementById("gapSearch").addEventListener("input", renderGapTable);
   document.getElementById("cropSearch").addEventListener("input", renderCropTable);
+  document.getElementById("downloadCropTable").addEventListener("click", downloadCropTable);
+  document.getElementById("toggleHighlightCrops").addEventListener("change", event => {
+    setCropMode(event.target.checked ? "highlight" : "all");
+  });
   document.getElementById("changeMetric").addEventListener("change", () => {
     renderClimateChangeHotspot();
     sortRiskSites();
@@ -1028,13 +1203,15 @@ async function main() {
   document.getElementById("riskOpacity").addEventListener("input", () => {
     if (state.layers.risk) state.layers.risk.setOpacity(Number(document.getElementById("riskOpacity").value));
   });
-  for (const id of ["toggleClimate", "toggleGbif", "toggleRisk", "toggleGenesys", "togglePoints"]) {
+  for (const id of ["toggleClimate", "toggleSoil", "toggleGbif", "toggleRisk", "toggleGenesys"]) {
     document.getElementById(id).addEventListener("change", syncLayerVisibility);
   }
-  document.querySelectorAll(".suggestedLayerToggle").forEach(input => {
-    input.addEventListener("change", renderSuggestedSiteLayers);
+  document.querySelectorAll(".suggestedLayerOption").forEach(input => {
+    input.addEventListener("click", () => {
+      const nextValue = state.suggestedLayerSelection === input.value ? "" : input.value;
+      setSuggestedLayerSelection(nextValue);
+    });
   });
-  document.getElementById("toggleSuggestedComposite").addEventListener("change", renderSuggestedSiteLayers);
   document.querySelectorAll(".suggestedWeight").forEach(input => {
     input.addEventListener("input", () => {
       updateWeightLabels();
@@ -1050,6 +1227,10 @@ async function main() {
   document.getElementById("climateSelect").addEventListener("change", syncLayerVisibility);
   document.getElementById("climateOpacity").addEventListener("input", () => {
     if (state.layers.climate) state.layers.climate.setOpacity(Number(document.getElementById("climateOpacity").value));
+  });
+  document.getElementById("soilSelect").addEventListener("change", syncLayerVisibility);
+  document.getElementById("soilOpacity").addEventListener("input", () => {
+    if (state.layers.soil) state.layers.soil.setOpacity(Number(document.getElementById("soilOpacity").value));
   });
   document.getElementById("downloadSiteTable").addEventListener("click", downloadSiteTable);
 

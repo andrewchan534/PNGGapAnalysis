@@ -318,6 +318,29 @@ tbody tr[data-status="recommended"] td:first-child {
   line-height: 1.32;
 }
 
+.category-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.category-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.category-legend i {
+  width: 18px;
+  height: 10px;
+  border: 1px solid rgba(33, 45, 45, 0.18);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
 .swatch {
   width: 54px;
   height: 10px;
@@ -365,6 +388,21 @@ tbody tr[data-status="recommended"] td:first-child {
 
 .swatch.climate.temp {
   background: linear-gradient(90deg, #3f88c5, #ffeda0, #f05d3b);
+}
+
+.swatch.soil {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.swatch.soil.soil-ph {
+  background: linear-gradient(90deg, #a52a2a, #e0733c, #f5d660, #7bb25f, #3182bd);
+}
+
+.swatch.soil.soil-cec {
+  background: linear-gradient(90deg, #f6efd2, #b8cc82, #67a97c, #357e84, #4c3978);
 }
 
 .swatch.site {

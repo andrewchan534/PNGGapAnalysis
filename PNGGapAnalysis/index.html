@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PNG Biodiversity and Genebank Gap Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=20260629-keep-null-genus">
+  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=20260707-soil-texture">
 </head>
 <body>
   <main class="shell">
@@ -25,12 +25,22 @@
 
       <section class="control-block">
         <h2>Layers</h2>
+        <label class="toggle mode-toggle"><input id="toggleHighlightCrops" type="checkbox"> WorldVeg crop species of focus</label>
+        <p id="cropModeStatus" class="muted">Using all GBIF and Genesys taxa for screening.</p>
         <div class="layer-control">
           <label class="toggle"><input id="toggleClimate" type="checkbox"> CMIP6 climate</label>
           <div class="layer-settings">
             <select id="climateSelect"></select>
             <label class="slider">Opacity <input id="climateOpacity" type="range" min="0" max="1" step="0.05" value="0.62"></label>
             <p id="climateStatus" class="muted">Preparing climate layer...</p>
+          </div>
+        </div>
+        <div class="layer-control">
+          <label class="toggle"><input id="toggleSoil" type="checkbox"> Soil map</label>
+          <div class="layer-settings">
+            <select id="soilSelect"></select>
+            <label class="slider">Opacity <input id="soilOpacity" type="range" min="0" max="1" step="0.05" value="0.68"></label>
+            <p id="soilStatus" class="muted">Preparing soil layer...</p>
           </div>
         </div>
         <div class="layer-control">
@@ -46,16 +56,15 @@
         </div>
         <label class="toggle"><input id="toggleGbif" type="checkbox"> GBIF hotspot grid</label>
         <label class="toggle"><input id="toggleGenesys" type="checkbox"> Genesys holding grid</label>
-        <label class="toggle"><input id="togglePoints" type="checkbox"> Genesys accession points</label>
       </section>
 
       <section class="control-block">
         <h2>Suggested Vegetable Collection Sites</h2>
         <div class="layer-options">
-          <label class="toggle"><input class="suggestedLayerToggle" type="checkbox" data-layer-key="gbif_genesys_gap"> GBIF-rich, Genesys-poor sites</label>
-          <label class="toggle"><input class="suggestedLayerToggle" type="checkbox" data-layer-key="temp_genesys_gap"> High warming, Genesys-poor sites</label>
-          <label class="toggle"><input class="suggestedLayerToggle" type="checkbox" data-layer-key="rain_extreme_genesys_gap"> Extreme rainfall-change, Genesys-poor sites</label>
-          <label class="toggle"><input id="toggleSuggestedComposite" type="checkbox"> Weighted collection priority</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="gbif_genesys_gap"> GBIF-rich, Genesys-poor sites</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="temp_genesys_gap"> High warming, Genesys-poor sites</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="rain_extreme_genesys_gap"> Extreme rainfall-change, Genesys-poor sites</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="weighted_collection_priority"> Weighted collection priority</label>
         </div>
         <div class="weight-controls">
           <label class="slider">GBIF gap weight <input class="suggestedWeight" type="range" min="0" max="5" step="0.25" value="1" data-weight-key="gbif_genesys_gap"><span id="weightGbif">1.00</span></label>
@@ -69,12 +78,13 @@
       <section class="control-block">
         <h2>Recommended Vegetables</h2>
         <div class="search-row">
-          <input id="cropSearch" type="search" placeholder="Filter vegetable genus">
+          <input id="cropSearch" type="search" placeholder="Filter vegetable species">
+          <button id="downloadCropTable" class="small-action" type="button">Download Excel</button>
         </div>
         <div class="table-wrap compact">
           <table>
             <thead>
-              <tr><th>Genus</th><th>GBIF</th><th>Genesys</th></tr>
+              <tr><th>Genus</th><th>Species</th><th>GBIF</th><th>Genesys</th></tr>
             </thead>
             <tbody id="cropTable"></tbody>
           </table>
@@ -94,21 +104,6 @@
         </div>
       </section>
 
-      <section class="control-block">
-        <h2>All Genus Gaps</h2>
-        <div class="search-row">
-          <input id="gapSearch" type="search" placeholder="Filter genus">
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Genus</th><th>GBIF</th><th>Genesys</th></tr>
-            </thead>
-            <tbody id="gapTable"></tbody>
-          </table>
-        </div>
-      </section>
-
       <section class="control-block sources">
         <h2>Sources</h2>
         <ul id="sources"></ul>
@@ -124,6 +119,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="PNGGapAnalysis.app.js?v=20260629-keep-null-genus"></script>
+  <script src="PNGGapAnalysis.app.js?v=20260707-soil-texture"></script>
 </body>
 </html>
