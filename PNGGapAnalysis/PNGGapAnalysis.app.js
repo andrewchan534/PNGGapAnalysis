@@ -1,4 +1,4 @@
-const APP_VERSION = "20260707-soil-texture";
+const APP_VERSION = "20260708-legend-toggle";
 
 const state = {
   summary: null,
@@ -18,6 +18,7 @@ const state = {
   rawSiteRows: [],
   siteGrid: null,
   changeGrids: null,
+  legendCollapsed: false,
 };
 
 const fmt = new Intl.NumberFormat("en-US");
@@ -1073,48 +1074,86 @@ function updateLegend() {
   const selected = state.summary?.climate?.layers?.find(layer => layer.id === document.getElementById("climateSelect")?.value);
   const climateVisible = document.getElementById("toggleClimate")?.checked;
   const changeMetric = document.getElementById("changeMetric")?.value || "precip";
+  const changeVisible = document.getElementById("toggleRisk")?.checked;
   const changeOverlay = state.changeLayers?.layers?.[changeMetric] || (state.changeGrids ? makeChangeOverlay(changeMetric) : null);
   const selectedSoil = state.soilLayers?.layers?.find(layer => layer.id === document.getElementById("soilSelect")?.value);
   const soilVisible = document.getElementById("toggleSoil")?.checked;
   const soilStyle = selectedSoil ? (SOIL_LAYER_STYLES[selectedSoil.id] || SOIL_LAYER_STYLES.soil_ph) : null;
+  const gbifVisible = document.getElementById("toggleGbif")?.checked;
+  const genesysVisible = document.getElementById("toggleGenesys")?.checked;
+  const suggestedKey = state.suggestedLayerSelection;
+  const suggestedStyle = suggestedKey ? SUGGESTED_LAYER_STYLES[suggestedKey] : null;
   const changeTitle = changeMetric === "temp" ? "Temperature change" : "Rainfall change";
   const climateTitle = selected?.id === "precip" ? "Rainfall" : "Temperature";
   const climateRange = selected?.range
     ? `${formatLegendValue(selected.range[0], selected.unit)} to ${formatLegendValue(selected.range[1], selected.unit)}`
     : "loading range";
   const climateClass = selected?.id === "precip" ? "climate rain" : "climate temp";
-  document.getElementById("legend").innerHTML = `
-    <strong>Map legend</strong>
-    <div class="legend-block">
-      <div class="legend-title">${climateTitle} ${climateVisible ? "" : "(hidden)"}</div>
-      <div class="scale-row"><span>${selected?.range ? formatLegendValue(selected.range[0], selected.unit) : "low"}</span><span>${selected?.range ? formatLegendValue(selected.range[1], selected.unit) : "high"}</span></div>
-      <span class="swatch ${climateClass}"></span>
-      <div class="legend-note">CMIP6 ${state.summary?.climate?.model || ""} ${state.summary?.climate?.ssp?.toUpperCase() || ""} ${state.summary?.climate?.period || ""}; ${climateRange}</div>
+
+  const legendBlocks = [];
+
+  if (climateVisible && selected) {
+    legendBlocks.push(`
+      <div class="legend-block">
+        <div class="legend-title">${climateTitle}</div>
+        <div class="scale-row"><span>${selected.range ? formatLegendValue(selected.range[0], selected.unit) : "low"}</span><span>${selected.range ? formatLegendValue(selected.range[1], selected.unit) : "high"}</span></div>
+        <span class="swatch ${climateClass}"></span>
+        <div class="legend-note">CMIP6 ${state.summary?.climate?.model || ""} ${state.summary?.climate?.ssp?.toUpperCase() || ""} ${state.summary?.climate?.period || ""}; ${climateRange}</div>
+      </div>
+    `);
+  }
+
+  if (changeVisible && changeOverlay) {
+    legendBlocks.push(`
+      <div class="legend-block">
+        <div class="legend-title">${changeTitle}</div>
+        <div class="scale-row"><span>${formatLegendValue(changeOverlay.range[0], changeOverlay.unit)}</span><span>${formatLegendValue(changeOverlay.range[1], changeOverlay.unit)}</span></div>
+        <span class="swatch change ${changeMetric === "temp" ? "temp" : "precip"}"></span>
+        <div class="legend-note">${changeMetric === "temp" ? "Future minus current climate; pale means no change, red means increase." : "Future minus current climate; blue means decrease, red means increase."}</div>
+      </div>
+    `);
+  }
+
+  if (soilVisible && selectedSoil && soilStyle) {
+    legendBlocks.push(`
+      <div class="legend-block">
+        <div class="legend-title">${selectedSoil.label}</div>
+        ${selectedSoil.categories ? `
+        <div class="category-legend">
+          ${selectedSoil.categories.map(item => `<span><i style="background:${item.color}"></i>${item.label}</span>`).join("")}
+        </div>` : `
+        <div class="scale-row"><span>${formatLegendValue(selectedSoil.range[0], selectedSoil.unit)}</span><span>${formatLegendValue(selectedSoil.range[1], selectedSoil.unit)}</span></div>
+        <span class="swatch soil ${soilStyle.className}"></span>`}
+        <div class="legend-note">${soilStyle.note}</div>
+      </div>
+    `);
+  }
+
+  if (suggestedStyle) {
+    legendBlocks.push(`<div class="swatch-row"><span class="swatch suggested ${suggestedKey === "gbif_genesys_gap" ? "gbif-gap" : suggestedKey === "temp_genesys_gap" ? "temp-gap" : suggestedKey === "rain_extreme_genesys_gap" ? "rain-gap" : "weighted"}"></span><span>Suggested: ${suggestedStyle.legend}</span></div>`);
+  }
+  if (gbifVisible) {
+    legendBlocks.push(`<div class="swatch-row"><span class="swatch gbif"></span><span>GBIF occurrence density</span></div>`);
+  }
+  if (genesysVisible) {
+    legendBlocks.push(`<div class="swatch-row"><span class="swatch genesys"></span><span>Genesys accession density</span></div>`);
+  }
+
+  const legend = document.getElementById("legend");
+  legend.classList.toggle("is-collapsed", state.legendCollapsed);
+  legend.innerHTML = `
+    <div class="legend-header">
+      <strong>Map legend</strong>
+      <button id="legendToggle" class="legend-toggle" type="button" aria-expanded="${!state.legendCollapsed}">${state.legendCollapsed ? "Show" : "Hide"}</button>
     </div>
-    <div class="legend-block">
-      <div class="legend-title">${changeTitle} ${document.getElementById("toggleRisk")?.checked ? "" : "(hidden)"}</div>
-      <div class="scale-row"><span>${changeOverlay ? formatLegendValue(changeOverlay.range[0], changeOverlay.unit) : "negative"}</span><span>${changeOverlay ? formatLegendValue(changeOverlay.range[1], changeOverlay.unit) : "positive"}</span></div>
-      <span class="swatch change ${changeMetric === "temp" ? "temp" : "precip"}"></span>
-      <div class="legend-note">${changeMetric === "temp" ? "Future minus current climate; pale means no change, red means increase." : "Future minus current climate; blue means decrease, red means increase."}</div>
+    <div class="legend-body">
+      ${legendBlocks.length ? legendBlocks.join("") : `<div class="legend-empty">No active overlay layers.</div>`}
     </div>
-    ${selectedSoil ? `
-    <div class="legend-block">
-      <div class="legend-title">${selectedSoil.label} ${soilVisible ? "" : "(hidden)"}</div>
-      ${selectedSoil.categories ? `
-      <div class="category-legend">
-        ${selectedSoil.categories.map(item => `<span><i style="background:${item.color}"></i>${item.label}</span>`).join("")}
-      </div>` : `
-      <div class="scale-row"><span>${formatLegendValue(selectedSoil.range[0], selectedSoil.unit)}</span><span>${formatLegendValue(selectedSoil.range[1], selectedSoil.unit)}</span></div>
-      <span class="swatch soil ${soilStyle.className}"></span>`}
-      <div class="legend-note">${soilStyle.note}</div>
-    </div>` : ""}
-    <div class="swatch-row"><span class="swatch suggested gbif-gap"></span><span>Suggested: GBIF-rich, Genesys-poor</span></div>
-    <div class="swatch-row"><span class="swatch suggested temp-gap"></span><span>Suggested: high warming, Genesys-poor</span></div>
-    <div class="swatch-row"><span class="swatch suggested rain-gap"></span><span>Suggested: rainfall extreme, Genesys-poor</span></div>
-    <div class="swatch-row"><span class="swatch suggested weighted"></span><span>Weighted final recommendation</span></div>
-    <div class="swatch-row"><span class="swatch gbif"></span><span>GBIF occurrence density</span></div>
-    <div class="swatch-row"><span class="swatch genesys"></span><span>Genesys accession density</span></div>
   `;
+  document.getElementById("legendToggle")?.addEventListener("click", () => {
+    state.legendCollapsed = !state.legendCollapsed;
+    updateLegend();
+  });
 }
 
 async function main() {

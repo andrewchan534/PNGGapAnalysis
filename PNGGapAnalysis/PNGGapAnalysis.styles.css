@@ -278,10 +278,47 @@ tbody tr[data-status="recommended"] td:first-child {
   color: var(--muted);
 }
 
+.legend.is-collapsed {
+  min-width: 0;
+}
+
+.legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
 .legend strong {
-  display: block;
   color: var(--ink);
-  margin-bottom: 8px;
+}
+
+.legend-toggle {
+  border: 1px solid #cbd8d1;
+  border-radius: 5px;
+  background: #f8faf6;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+.legend-toggle:hover {
+  border-color: var(--accent);
+}
+
+.legend-body {
+  margin-top: 8px;
+}
+
+.legend.is-collapsed .legend-body {
+  display: none;
+}
+
+.legend-empty {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .swatch-row {
