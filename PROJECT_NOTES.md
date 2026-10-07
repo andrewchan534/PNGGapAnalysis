@@ -1,5 +1,20 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
+## Release v2026.10.07.1 (2026-10-07)
+
+- Added 25 WorldVeg highest-priority species with individual and combined
+  selection, Select all, and Clear selection. Selected species override the
+  broader focus switch; clearing the selection restores its previous mode.
+- Species selections update GBIF and Genesys grids, summary counts, collecting
+  recommendations, species and GPS tables, and Excel downloads. Infraspecific
+  records are merged into the species by exact binomial matching.
+- Corrected all-taxa and focus-mode temperature and rainfall component scores
+  to use actual future-minus-baseline climate, rather than substitute GBIF scores.
+- Verified weight changes update map colors and GPS ranking in all three modes.
+  Proportional weights (1:1:1 and 5:5:5) produce the same weighted mean.
+- Zero weighted scores are transparent, including after opacity adjustments.
+- The current application version is displayed below the page title.
+
 Interactive local website for exploring Papua New Guinea biodiversity records,
 Genesys PGR accession holdings, and CMIP6 future climate layers for vegetable
 crop and locally important food-plant collecting gap analysis.

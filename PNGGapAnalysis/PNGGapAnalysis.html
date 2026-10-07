@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PNG Biodiversity and Genebank Gap Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=20260708-legend-toggle">
+  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=2026.10.07.1">
 </head>
 <body>
   <main class="shell">
@@ -21,6 +21,16 @@
         <div><strong id="gbifSpecies">-</strong><span>GBIF species</span></div>
         <div><strong id="genesysRows">-</strong><span>Genesys accessions</span></div>
         <div><strong id="genesysCoords">-</strong><span>mapped accessions</span></div>
+      </section>
+
+      <section class="control-block">
+        <h2>WorldVeg Highest-Priority Species</h2>
+        <div class="priority-actions">
+          <button id="selectAllPrioritySpecies" class="small-action" type="button">Select all</button>
+          <button id="clearPrioritySpecies" class="small-action" type="button">Clear selection</button>
+        </div>
+        <div id="prioritySpeciesList" class="priority-species-list"></div>
+        <p id="prioritySpeciesStatus" class="muted" aria-live="polite">No priority species selected.</p>
       </section>
 
       <section class="control-block">
@@ -119,6 +129,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="PNGGapAnalysis.app.js?v=20260708-legend-toggle"></script>
+  <script src="PNGGapAnalysis.app.js?v=2026.10.07.1"></script>
 </body>
 </html>
