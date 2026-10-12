@@ -1,5 +1,20 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
+## Release v2026.10.12.1 (2026-10-12)
+
+- Added 18 CePaCT priority taxa with individual and combined selection and
+  independent Select all / Clear selection controls.
+- Musa spp., Artocarpus spp., Saccharum spp. and Dioscorea spp. include the
+  entire genus, including unidentified genus records and Genesys group labels.
+- CePaCT and WorldVeg selections use a union, without double-counting overlaps.
+  Grids, summary counts, collecting scores, tables and Excel exports update
+  together; clearing both lists restores the broader screening mode.
+- Genus-only spp. records contribute to density, not identified species richness.
+- Preserved supplied names, matching Cocos nucifera Lloyd as Cocos nucifera.
+  No automatic synonym expansion is applied.
+- Verified all 18 choices, complete genus counts against raw GBIF and Genesys
+  sources, overlap deduplication, weight changes, exports and mobile layout.
+
 ## Release v2026.10.07.1 (2026-10-07)
 
 - Added 25 WorldVeg highest-priority species with individual and combined

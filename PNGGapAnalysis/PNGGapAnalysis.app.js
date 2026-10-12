@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.10.07.1";
+const APP_VERSION = "2026.10.12.1";
 
 const state = {
   summary: null,
@@ -22,6 +22,7 @@ const state = {
   prioritySpecies: null,
   priorityDataset: null,
   selectedPrioritySpecies: new Set(),
+  selectedCepactTaxa: new Set(),
 };
 
 const fmt = new Intl.NumberFormat("en-US");
@@ -106,8 +107,12 @@ function clearCheckedInputs() {
 }
 
 function activeData() {
-  if (state.selectedPrioritySpecies.size) return state.priorityDataset;
+  if (hasPrioritySelection()) return state.priorityDataset;
   return state.datasets[state.activeMode] || state.datasets.all;
+}
+
+function hasPrioritySelection() {
+  return state.selectedPrioritySpecies.size > 0 || state.selectedCepactTaxa.size > 0;
 }
 
 function priorityFeature(lat0, lon0, properties) {
@@ -117,7 +122,8 @@ function priorityFeature(lat0, lon0, properties) {
 }
 
 function buildPriorityDataset() {
-  const species = state.prioritySpecies.species.filter(item => state.selectedPrioritySpecies.has(item.name));
+  const species = state.prioritySpecies.species.filter(item => state.selectedPrioritySpecies.has(item.name)
+    || state.selectedCepactTaxa.has(item.name) || state.selectedCepactTaxa.has(`${item.name.split(" ")[0]} spp.`));
   const gbif = new Map();
   const genesys = new Map();
   const climate = new Map(state.prioritySpecies.climate_cells.map(cell => [`${cell.lat0},${cell.lon0}`, cell]));
@@ -146,13 +152,14 @@ function buildPriorityDataset() {
     const genera = new Map();
     cell.counts.forEach(([name, count]) => { const genus = name.split(" ")[0]; genera.set(genus, (genera.get(genus) || 0) + count); });
     const topGenera = [...genera].sort((a, b) => b[1] - a[1]);
-    gbifFeatures.push(priorityFeature(cell.lat, cell.lon, { records: cell.records, species: cell.counts.length, genera: genera.size, top_species: cell.counts, top_genera: topGenera }));
+    const speciesCount = cell.counts.filter(([name]) => !name.endsWith(" spp.")).length;
+    gbifFeatures.push(priorityFeature(cell.lat, cell.lon, { records: cell.records, species: speciesCount, genera: genera.size, top_species: cell.counts, top_genera: topGenera }));
     if (cell.records < 3) continue;
     const accessions = genesys.get(key)?.records || 0;
     siteRows.push({ lat0: cell.lat, lon0: cell.lon, center_lat: cell.lat + .125, center_lon: cell.lon + .125,
-      gbif_records: cell.records, gbif_species: cell.counts.length, gbif_genera: genera.size,
-      vegetable_records: cell.records, vegetable_species: cell.counts.length, genesys_accessions: accessions,
-      priority_score: Math.log1p(cell.records) * (1 + Math.log1p(cell.counts.length)) / (1 + accessions),
+      gbif_records: cell.records, gbif_species: speciesCount, gbif_genera: genera.size,
+      vegetable_records: cell.records, vegetable_species: speciesCount, genesys_accessions: accessions,
+      priority_score: Math.log1p(cell.records) * (1 + Math.log1p(speciesCount)) / (1 + accessions),
       top_species: cell.counts, top_genera: topGenera,
       temp_change: climate.get(key)?.temp_change ?? null, precip_change: climate.get(key)?.precip_change ?? null });
   }
@@ -189,28 +196,39 @@ function buildPriorityDataset() {
   return { gbifGrid: collection(gbifFeatures), genesysGrid: collection(genesysFeatures), siteRows,
     siteGrid: collection(siteRows.map(row => priorityFeature(row.lat0, row.lon0, row))), cropRows, suggestedLayers: { layers },
     metrics: { gbif: gbifFeatures.reduce((sum, f) => sum + f.properties.records, 0),
-      species: species.filter(item => item.gbif_cells.length).length,
+      species: species.filter(item => item.gbif_cells.length && !item.name.endsWith(" spp.")).length,
       genesys: species.reduce((sum, item) => sum + item.genesys_total, 0),
       mapped: genesysFeatures.reduce((sum, f) => sum + f.properties.records, 0) } };
 }
 
 function populatePrioritySpecies() {
-  document.getElementById("prioritySpeciesList").innerHTML = state.prioritySpecies.species.map(item =>
-    `<label class="toggle"><input class="priority-species-option" type="checkbox" value="${item.name}"><span><i>${item.name}</i></span></label>`).join("");
+  const lists = [
+    { names: state.prioritySpecies.worldveg_taxa, container: "prioritySpeciesList", selector: ".priority-species-option", css: "priority-species-option", select: "selectAllPrioritySpecies", clear: "clearPrioritySpecies" },
+    { names: state.prioritySpecies.cepact_taxa, container: "cepactTaxaList", selector: ".cepact-taxon-option", css: "cepact-taxon-option", select: "selectAllCepactTaxa", clear: "clearCepactTaxa" },
+  ];
+  for (const list of lists) {
+    document.getElementById(list.container).innerHTML = list.names.map(name =>
+      `<label class="toggle"><input class="${list.css}" type="checkbox" value="${name}"><span><i>${name}</i></span></label>`).join("");
+  }
   const refresh = () => {
     state.selectedPrioritySpecies = new Set([...document.querySelectorAll(".priority-species-option:checked")].map(input => input.value));
-    state.priorityDataset = state.selectedPrioritySpecies.size ? buildPriorityDataset() : null;
+    state.selectedCepactTaxa = new Set([...document.querySelectorAll(".cepact-taxon-option:checked")].map(input => input.value));
+    state.priorityDataset = hasPrioritySelection() ? buildPriorityDataset() : null;
     document.getElementById("prioritySpeciesStatus").textContent = state.selectedPrioritySpecies.size
       ? `${state.selectedPrioritySpecies.size} priority species selected.` : "No priority species selected.";
-    if (state.selectedPrioritySpecies.size) document.getElementById("toggleGbif").checked = true;
+    document.getElementById("cepactTaxaStatus").textContent = state.selectedCepactTaxa.size
+      ? `${state.selectedCepactTaxa.size} CePaCT taxa selected.` : "No CePaCT taxa selected.";
+    if (hasPrioritySelection()) document.getElementById("toggleGbif").checked = true;
     setCropMode(state.activeMode);
   };
-  document.querySelectorAll(".priority-species-option").forEach(input => input.addEventListener("change", refresh));
-  for (const [id, checked] of [["selectAllPrioritySpecies", true], ["clearPrioritySpecies", false]]) {
-    document.getElementById(id).addEventListener("click", () => {
-      document.querySelectorAll(".priority-species-option").forEach(input => { input.checked = checked; });
-      refresh();
-    });
+  for (const list of lists) {
+    document.querySelectorAll(list.selector).forEach(input => input.addEventListener("change", refresh));
+    for (const [id, checked] of [[list.select, true], [list.clear, false]]) {
+      document.getElementById(id).addEventListener("click", () => {
+        document.querySelectorAll(list.selector).forEach(input => { input.checked = checked; });
+        refresh();
+      });
+    }
   }
 }
 
@@ -878,8 +896,8 @@ function setCropMode(mode) {
   state.activeMode = mode;
   const status = document.getElementById("cropModeStatus");
   if (status) {
-    status.textContent = state.selectedPrioritySpecies.size
-      ? `Using ${state.selectedPrioritySpecies.size} selected WorldVeg highest-priority species.`
+    status.textContent = hasPrioritySelection()
+      ? `Using ${state.selectedPrioritySpecies.size} WorldVeg species and ${state.selectedCepactTaxa.size} CePaCT taxa; ${state.priorityDataset.cropRows.length} taxon rows.`
       : mode === "highlight"
       ? `Using WorldVeg crop species of focus (${state.summary?.recommendations?.highlight_crop_count || 0} recommended taxa).`
       : "Using all GBIF and Genesys taxa for screening.";
