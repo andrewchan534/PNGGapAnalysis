@@ -157,7 +157,24 @@ body {
 }
 
 .weight-controls .slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
   align-items: center;
+  margin-bottom: 8px;
+}
+
+.weight-controls .weight-label {
+  grid-column: 1 / -1;
+  width: auto;
+  text-align: left;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.weight-controls input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 
 .weight-controls span {
@@ -408,6 +425,11 @@ tbody tr[data-status="recommended"] td:first-child {
 
 .swatch.gbif {
   background: linear-gradient(90deg, rgba(216, 93, 63, 0.15), rgba(216, 93, 63, 0.9));
+}
+
+.swatch.border-setback {
+  border: 1px dashed #a52a35;
+  background: rgba(222, 139, 146, .25);
 }
 
 .swatch.genesys {

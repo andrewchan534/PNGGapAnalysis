@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PNG Biodiversity and Genebank Gap Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=2026.10.12.1">
+  <link rel="stylesheet" href="PNGGapAnalysis.styles.css?v=2026.10.13.2-preview">
 </head>
 <body>
   <main class="shell">
@@ -44,15 +44,23 @@
       </section>
 
       <section class="control-block">
-        <h2>Layers</h2>
-        <label class="toggle mode-toggle"><input id="toggleHighlightCrops" type="checkbox"> WorldVeg crop species of focus</label>
-        <p id="cropModeStatus" class="muted">Using all GBIF and Genesys taxa for screening.</p>
+        <h2>PNG NARI Priority Taxa</h2>
+        <div class="priority-actions">
+          <button id="selectAllNariTaxa" class="small-action" type="button" aria-label="Select all PNG NARI taxa">Select all</button>
+          <button id="clearNariTaxa" class="small-action" type="button" aria-label="Clear PNG NARI selection">Clear selection</button>
+        </div>
+        <div id="nariTaxaList" class="priority-species-list"></div>
+        <p id="nariTaxaStatus" class="muted" aria-live="polite">No PNG NARI taxa selected.</p>
+      </section>
+
+      <section class="control-block">
         <div class="layer-control">
-          <label class="toggle"><input id="toggleClimate" type="checkbox"> CMIP6 climate</label>
+          <label class="toggle"><input id="toggleClimate" type="checkbox"> CMIP6 climate (2041-2060 projection)</label>
           <div class="layer-settings">
             <select id="climateSelect"></select>
             <label class="slider">Opacity <input id="climateOpacity" type="range" min="0" max="1" step="0.05" value="0.62"></label>
             <p id="climateStatus" class="muted">Preparing climate layer...</p>
+            <p class="muted">ACCESS-CM2, SSP2-4.5; 2041-2060 average climate. Annual rainfall sums the 12 monthly values; temperature averages the 12 monthly minimum or maximum values.</p>
           </div>
         </div>
         <div class="layer-control">
@@ -64,32 +72,35 @@
           </div>
         </div>
         <div class="layer-control">
-          <label class="toggle"><input id="toggleRisk" type="checkbox"> Climate change hotspot</label>
+          <label class="toggle"><input id="toggleRisk" type="checkbox"> Climate change hotspot (2041-2060 vs. baseline)</label>
           <div class="layer-settings">
             <select id="changeMetric">
               <option value="precip">Rainfall change</option>
               <option value="temp">Annual mean temperature change</option>
             </select>
             <label class="slider">Opacity <input id="riskOpacity" type="range" min="0" max="1" step="0.05" value="0.72"></label>
-            <p id="riskStatus" class="muted">Loading future-minus-current climate raster...</p>
+            <p id="riskStatus" class="muted">Loading future-minus-baseline climate raster...</p>
+            <p class="muted">Change = 2041-2060 projection minus WorldClim v2.1 baseline (1970-2000 average). Rainfall compares annual totals (mm/year); temperature compares future mean (minimum + maximum)/2 with baseline mean temperature (degrees C).</p>
           </div>
         </div>
         <label class="toggle"><input id="toggleGbif" type="checkbox"> GBIF hotspot grid</label>
         <label class="toggle"><input id="toggleGenesys" type="checkbox"> Genesys holding grid</label>
+        <label class="toggle"><input id="toggleBorderSetback" type="checkbox"> Indonesia border setback (50 km)</label>
       </section>
 
       <section class="control-block">
         <h2>Suggested Vegetable Collection Sites</h2>
+        <p class="muted">PNG land only; cells within the 50 km Indonesia border setback are excluded.</p>
         <div class="layer-options">
-          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="gbif_genesys_gap"> GBIF-rich, Genesys-poor sites</label>
-          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="temp_genesys_gap"> High warming, Genesys-poor sites</label>
-          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="rain_extreme_genesys_gap"> Extreme rainfall-change, Genesys-poor sites</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="gbif_genesys_gap"> GBIF observation rich, Genesys conservation poor</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="temp_genesys_gap"> High temperature increasing</label>
+          <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="rain_extreme_genesys_gap"> Extreme rainfall-change sites</label>
           <label class="toggle"><input class="suggestedLayerOption" type="radio" name="suggestedSiteLayer" value="weighted_collection_priority"> Weighted collection priority</label>
         </div>
         <div class="weight-controls">
-          <label class="slider">GBIF gap weight <input class="suggestedWeight" type="range" min="0" max="5" step="0.25" value="1" data-weight-key="gbif_genesys_gap"><span id="weightGbif">1.00</span></label>
-          <label class="slider">Temperature weight <input class="suggestedWeight" type="range" min="0" max="5" step="0.25" value="1" data-weight-key="temp_genesys_gap"><span id="weightTemp">1.00</span></label>
-          <label class="slider">Rainfall weight <input class="suggestedWeight" type="range" min="0" max="5" step="0.25" value="1" data-weight-key="rain_extreme_genesys_gap"><span id="weightRain">1.00</span></label>
+          <label class="slider"><span class="weight-label">Collection gap between GBIF and Genesys</span> <input class="suggestedWeight" type="range" min="0" max="10" step="0.5" value="1" data-weight-key="gbif_genesys_gap"><span id="weightGbif">1.00</span></label>
+          <label class="slider"><span class="weight-label">High temperature increasing weight</span> <input class="suggestedWeight" type="range" min="0" max="10" step="0.5" value="1" data-weight-key="temp_genesys_gap"><span id="weightTemp">1.00</span></label>
+          <label class="slider"><span class="weight-label">Extreme rain full-change weight</span> <input class="suggestedWeight" type="range" min="0" max="10" step="0.5" value="1" data-weight-key="rain_extreme_genesys_gap"><span id="weightRain">1.00</span></label>
         </div>
         <label class="slider">Opacity <input id="suggestedSiteOpacity" type="range" min="0" max="1" step="0.05" value="0.68"></label>
         <p id="suggestedSiteStatus" class="muted">Stacking vegetable GBIF, Genesys PGR, and climate-change collection priorities.</p>
@@ -111,7 +122,7 @@
         </div>
       </section>
 
-      <section class="control-block">
+      <section id="suggestedSitePreview" class="control-block" hidden>
         <h2>Suggested Site Preview</h2>
         <button id="downloadSiteTable" class="small-action" type="button">Download Excel</button>
         <div class="table-wrap compact">
@@ -139,6 +150,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="PNGGapAnalysis.app.js?v=2026.10.12.1"></script>
+  <script src="PNGGapAnalysis.app.js?v=2026.10.13.2-preview"></script>
 </body>
 </html>

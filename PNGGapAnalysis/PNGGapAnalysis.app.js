@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.10.12.1";
+const APP_VERSION = "2026.10.13.2-preview";
 
 const state = {
   summary: null,
@@ -23,6 +23,8 @@ const state = {
   priorityDataset: null,
   selectedPrioritySpecies: new Set(),
   selectedCepactTaxa: new Set(),
+  selectedNariTaxa: new Set(),
+  collectingConstraints: null,
 };
 
 const fmt = new Intl.NumberFormat("en-US");
@@ -44,17 +46,17 @@ const SOIL_LAYER_STYLES = {
 };
 const SUGGESTED_LAYER_STYLES = {
   gbif_genesys_gap: {
-    legend: "GBIF-rich, Genesys-poor",
+    legend: "GBIF observation rich, Genesys conservation poor",
     border: "#9b3b2f",
     stops: [[255, 244, 214], [239, 146, 63], [171, 43, 30]],
   },
   temp_genesys_gap: {
-    legend: "High warming, Genesys-poor",
+    legend: "High temperature increasing",
     border: "#8e1f49",
     stops: [[255, 235, 238], [224, 96, 121], [128, 28, 67]],
   },
   rain_extreme_genesys_gap: {
-    legend: "Extreme rainfall change, Genesys-poor",
+    legend: "Extreme rainfall-change sites",
     border: "#145c72",
     stops: [[226, 246, 244], [74, 163, 177], [19, 89, 122]],
   },
@@ -112,7 +114,7 @@ function activeData() {
 }
 
 function hasPrioritySelection() {
-  return state.selectedPrioritySpecies.size > 0 || state.selectedCepactTaxa.size > 0;
+  return state.selectedPrioritySpecies.size > 0 || state.selectedCepactTaxa.size > 0 || state.selectedNariTaxa.size > 0;
 }
 
 function priorityFeature(lat0, lon0, properties) {
@@ -123,7 +125,8 @@ function priorityFeature(lat0, lon0, properties) {
 
 function buildPriorityDataset() {
   const species = state.prioritySpecies.species.filter(item => state.selectedPrioritySpecies.has(item.name)
-    || state.selectedCepactTaxa.has(item.name) || state.selectedCepactTaxa.has(`${item.name.split(" ")[0]} spp.`));
+    || state.selectedCepactTaxa.has(item.name) || state.selectedCepactTaxa.has(`${item.name.split(" ")[0]} spp.`)
+    || state.selectedNariTaxa.has(item.name));
   const gbif = new Map();
   const genesys = new Map();
   const climate = new Map(state.prioritySpecies.climate_cells.map(cell => [`${cell.lat0},${cell.lon0}`, cell]));
@@ -154,7 +157,7 @@ function buildPriorityDataset() {
     const topGenera = [...genera].sort((a, b) => b[1] - a[1]);
     const speciesCount = cell.counts.filter(([name]) => !name.endsWith(" spp.")).length;
     gbifFeatures.push(priorityFeature(cell.lat, cell.lon, { records: cell.records, species: speciesCount, genera: genera.size, top_species: cell.counts, top_genera: topGenera }));
-    if (cell.records < 3) continue;
+    if (cell.records < 3 || climate.get(key)?.collecting_allowed !== true) continue;
     const accessions = genesys.get(key)?.records || 0;
     siteRows.push({ lat0: cell.lat, lon0: cell.lon, center_lat: cell.lat + .125, center_lon: cell.lon + .125,
       gbif_records: cell.records, gbif_species: speciesCount, gbif_genera: genera.size,
@@ -163,7 +166,7 @@ function buildPriorityDataset() {
       top_species: cell.counts, top_genera: topGenera,
       temp_change: climate.get(key)?.temp_change ?? null, precip_change: climate.get(key)?.precip_change ?? null });
   }
-  siteRows.sort((a, b) => Number(b.genesys_accessions === 0) - Number(a.genesys_accessions === 0) || b.priority_score - a.priority_score);
+  siteRows.sort((a, b) => Number(b.genesys_accessions === 0) - Number(a.genesys_accessions === 0) || b.priority_score - a.priority_score || b.gbif_records - a.gbif_records);
   const collection = features => ({ type: "FeatureCollection", features });
   const genesysFeatures = [...genesys.values()].map(cell => priorityFeature(cell.lat, cell.lon, {
     records: cell.records, taxa: cell.names.size, genera: cell.genera.size, institutes: cell.institutes.size,
@@ -175,7 +178,7 @@ function buildPriorityDataset() {
     return { genus, species: epithet, gbif_records: records, gbif_cells: item.gbif_cells.length, genesys_accessions: accessions,
       priority_score: Math.log1p(records) * (1 + Math.log1p(item.gbif_cells.length)) / (1 + accessions), crop_hint: true,
       status: accessions === 0 ? "not represented" : accessions < 5 ? "low represented" : "represented",
-      recommendation: records ? "WorldVeg highest-priority species" : "No georeferenced GBIF records in the study area" };
+      recommendation: records ? "Selected priority taxon" : "No georeferenced GBIF records in the study area" };
   }).sort((a, b) => Number(b.genesys_accessions <= 4) - Number(a.genesys_accessions <= 4) || b.priority_score - a.priority_score);
   const values = {
     gbif_genesys_gap: siteRows.map(row => row.priority_score),
@@ -184,12 +187,15 @@ function buildPriorityDataset() {
   };
   const layers = {};
   for (const key of SUGGESTED_LAYER_KEYS) {
-    const finite = values[key].filter(Number.isFinite);
+    const layerRows = key === "gbif_genesys_gap" ? siteRows.slice(0, 300) : siteRows;
+    const layerValues = key === "gbif_genesys_gap" ? values[key].slice(0, 300) : values[key];
+    const finite = layerValues.filter(Number.isFinite);
     const lo = finite.length ? Math.min(...finite) : 0;
     const hi = finite.length ? Math.max(...finite) : 0;
-    layers[key] = { label: SUGGESTED_LAYER_STYLES[key].legend, geojson: collection(siteRows.map((row, index) => {
-      const value = values[key][index];
-      const score = Number.isFinite(value) ? (hi > lo ? (value - lo) / (hi - lo) : 1) / (1 + row.genesys_accessions) : 0;
+    layers[key] = { label: SUGGESTED_LAYER_STYLES[key].legend, geojson: collection(layerRows.map((row, index) => {
+      const value = layerValues[index];
+      const normalized = Number.isFinite(value) ? (hi > lo ? (value - lo) / (hi - lo) : 1) : 0;
+      const score = key === "gbif_genesys_gap" ? normalized / (1 + row.genesys_accessions) : normalized;
       return priorityFeature(row.lat0, row.lon0, { ...row, score, layer: key });
     })) };
   }
@@ -205,6 +211,7 @@ function populatePrioritySpecies() {
   const lists = [
     { names: state.prioritySpecies.worldveg_taxa, container: "prioritySpeciesList", selector: ".priority-species-option", css: "priority-species-option", select: "selectAllPrioritySpecies", clear: "clearPrioritySpecies" },
     { names: state.prioritySpecies.cepact_taxa, container: "cepactTaxaList", selector: ".cepact-taxon-option", css: "cepact-taxon-option", select: "selectAllCepactTaxa", clear: "clearCepactTaxa" },
+    { names: state.prioritySpecies.nari_taxa, container: "nariTaxaList", selector: ".nari-taxon-option", css: "nari-taxon-option", select: "selectAllNariTaxa", clear: "clearNariTaxa" },
   ];
   for (const list of lists) {
     document.getElementById(list.container).innerHTML = list.names.map(name =>
@@ -213,11 +220,14 @@ function populatePrioritySpecies() {
   const refresh = () => {
     state.selectedPrioritySpecies = new Set([...document.querySelectorAll(".priority-species-option:checked")].map(input => input.value));
     state.selectedCepactTaxa = new Set([...document.querySelectorAll(".cepact-taxon-option:checked")].map(input => input.value));
+    state.selectedNariTaxa = new Set([...document.querySelectorAll(".nari-taxon-option:checked")].map(input => input.value));
     state.priorityDataset = hasPrioritySelection() ? buildPriorityDataset() : null;
     document.getElementById("prioritySpeciesStatus").textContent = state.selectedPrioritySpecies.size
       ? `${state.selectedPrioritySpecies.size} priority species selected.` : "No priority species selected.";
     document.getElementById("cepactTaxaStatus").textContent = state.selectedCepactTaxa.size
       ? `${state.selectedCepactTaxa.size} CePaCT taxa selected.` : "No CePaCT taxa selected.";
+    document.getElementById("nariTaxaStatus").textContent = state.selectedNariTaxa.size
+      ? `${state.selectedNariTaxa.size} PNG NARI taxa selected.` : "No PNG NARI taxa selected.";
     if (hasPrioritySelection()) document.getElementById("toggleGbif").checked = true;
     setCropMode(state.activeMode);
   };
@@ -400,7 +410,13 @@ function updateWeightLabels() {
 
 function buildWeightedSuggestedLayerDef() {
   const layers = activeData()?.suggestedLayers?.layers || {};
-  const base = layers.gbif_genesys_gap?.geojson?.features || [];
+  const candidates = new Map();
+  for (const key of SUGGESTED_LAYER_KEYS) {
+    for (const feature of layers[key]?.geojson?.features || []) {
+      if (!candidates.has(featureKey(feature))) candidates.set(featureKey(feature), feature);
+    }
+  }
+  const base = [...candidates.values()];
   const weights = getSuggestedWeights();
   const totalWeight = Object.values(weights).reduce((sum, value) => sum + Math.max(0, value), 0);
   const scoreMaps = {};
@@ -487,6 +503,8 @@ function setSuggestedLayerSelection(value) {
 }
 
 function renderSuggestedSiteLayers() {
+  const selectedKey = selectedSuggestedLayerKey();
+  document.getElementById("suggestedSitePreview").hidden = selectedKey !== "weighted_collection_priority";
   if (state.layers.suggestedSiteComponents) {
     Object.values(state.layers.suggestedSiteComponents).forEach(layer => {
       if (state.map.hasLayer(layer)) state.map.removeLayer(layer);
@@ -504,7 +522,6 @@ function renderSuggestedSiteLayers() {
     return;
   }
 
-  const selectedKey = selectedSuggestedLayerKey();
   if (SUGGESTED_LAYER_KEYS.includes(selectedKey)) {
     const layerDef = layers[selectedKey];
     if (layerDef) {
@@ -658,7 +675,7 @@ function renderClimateChangeHotspot() {
     return;
   }
   if (!state.changeGrids) {
-    if (status) status.textContent = "Loading future-minus-current climate raster...";
+    if (status) status.textContent = "Loading future-minus-baseline climate raster...";
     updateLegend();
     return;
   }
@@ -834,7 +851,7 @@ function sortRiskSites() {
   const metric = document.getElementById("changeMetric")?.value || "precip";
   const status = document.getElementById("riskStatus");
   if (status && !state.changeGrids) {
-    status.textContent = "Loading future-minus-current climate raster...";
+    status.textContent = "Loading future-minus-baseline climate raster...";
   }
   const rows = (activeData()?.siteRows || [])
     .filter(row => row.genesys_accessions === 0)
@@ -894,14 +911,6 @@ function rebuildModeLayers() {
 
 function setCropMode(mode) {
   state.activeMode = mode;
-  const status = document.getElementById("cropModeStatus");
-  if (status) {
-    status.textContent = hasPrioritySelection()
-      ? `Using ${state.selectedPrioritySpecies.size} WorldVeg species and ${state.selectedCepactTaxa.size} CePaCT taxa; ${state.priorityDataset.cropRows.length} taxon rows.`
-      : mode === "highlight"
-      ? `Using WorldVeg crop species of focus (${state.summary?.recommendations?.highlight_crop_count || 0} recommended taxa).`
-      : "Using all GBIF and Genesys taxa for screening.";
-  }
   rebuildModeLayers();
 }
 
@@ -1189,6 +1198,7 @@ function syncLayerVisibility() {
   const pairs = [
     ["toggleGbif", "gbif"],
     ["toggleGenesys", "genesys"],
+    ["toggleBorderSetback", "borderSetback"],
   ];
   for (const [control, layerName] of pairs) {
     const checked = document.getElementById(control).checked;
@@ -1225,6 +1235,9 @@ function updateLegend() {
   const climateClass = selected?.id === "precip" ? "climate rain" : "climate temp";
 
   const legendBlocks = [];
+  if (document.getElementById("toggleBorderSetback")?.checked) {
+    legendBlocks.push(`<div class="swatch-row"><span class="swatch border-setback"></span><span>Indonesia border setback (50 km)</span></div>`);
+  }
 
   if (climateVisible && selected) {
     legendBlocks.push(`
@@ -1293,6 +1306,7 @@ function updateLegend() {
 async function main() {
   clearCheckedInputs();
   state.prioritySpecies = await fetchJson("data/priority_species.json");
+  state.collectingConstraints = await fetchJson("data/collecting_constraints.json");
   const [
     summary,
     gbifGrid,
@@ -1357,6 +1371,10 @@ async function main() {
   populateClimateSelect(summary);
   populateSoilSelect();
   initMap();
+  state.layers.borderSetback = L.geoJSON(state.collectingConstraints.setback_geojson, {
+    style: { color: "#a52a35", weight: 1.5, dashArray: "5 4", fillColor: "#de8b92", fillOpacity: .25 },
+    interactive: false,
+  });
   populatePrioritySpecies();
   updateLegend();
 
@@ -1368,9 +1386,6 @@ async function main() {
 
   document.getElementById("cropSearch").addEventListener("input", renderCropTable);
   document.getElementById("downloadCropTable").addEventListener("click", downloadCropTable);
-  document.getElementById("toggleHighlightCrops").addEventListener("change", event => {
-    setCropMode(event.target.checked ? "highlight" : "all");
-  });
   document.getElementById("changeMetric").addEventListener("change", () => {
     renderClimateChangeHotspot();
     sortRiskSites();
@@ -1378,7 +1393,7 @@ async function main() {
   document.getElementById("riskOpacity").addEventListener("input", () => {
     if (state.layers.risk) state.layers.risk.setOpacity(Number(document.getElementById("riskOpacity").value));
   });
-  for (const id of ["toggleClimate", "toggleSoil", "toggleGbif", "toggleRisk", "toggleGenesys"]) {
+  for (const id of ["toggleClimate", "toggleSoil", "toggleGbif", "toggleRisk", "toggleGenesys", "toggleBorderSetback"]) {
     document.getElementById(id).addEventListener("change", syncLayerVisibility);
   }
   document.querySelectorAll(".suggestedLayerOption").forEach(input => {

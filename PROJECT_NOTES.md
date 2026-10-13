@@ -1,5 +1,23 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
+## Preview v2026.10.13.2
+
+- Added 13 PNG NARI priority taxa; WorldVeg, CePaCT and NARI selections use a
+  union and do not double-count overlapping species.
+- Collecting cells must have GPS centers on PNG land and must not intersect
+  the 50 km PNG-Indonesia land-border setback. A 50 m projection margin is
+  added to the UTM54S buffer of the shared Natural Earth 1:10m country boundary.
+  Cartographic boundaries are generalized, not survey-grade.
+- Added an optional setback map layer and Natural Earth source citation.
+- High warming and extreme rainfall-change collecting layers retain sites
+  with existing Genesys holdings and no longer discount their climate scores.
+  The GBIF-gap component retains its holdings discount.
+- Climate components score all eligible cells. The GBIF-gap layer retains its
+  original Genesys-poor-first 300-cell shortlist and within-shortlist color range.
+  The weighted layer uses the union of component grids so climate-only sites
+  outside that shortlist remain eligible. Constraints apply to all modes, four
+  recommendation layers, GPS preview and Excel exports, but not occurrence grids.
+
 ## Release v2026.10.12.1 (2026-10-12)
 
 - Added 18 CePaCT priority taxa with individual and combined selection and
