@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.10.13.2-preview";
+const APP_VERSION = "2026.10.20-crop-labels";
 
 const state = {
   summary: null,
@@ -326,12 +326,12 @@ function makeRecommendedSiteLayer(geojson) {
         ? `<br>Rainfall change: ${Math.round(risk.precip)} mm/year<br>Mean temp change: ${risk.temp.toFixed(1)} deg C`
         : "";
       layer.bindPopup(`
-        <strong>Vegetable collection priority site</strong><br>
+        <strong>Crop collection priority site</strong><br>
         Center: ${p.center[0]}, ${p.center[1]}<br>
-        Vegetable GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
-        Vegetable Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
-        Vegetable genera: ${genera || "not available"}<br>
-        Vegetable hotspot species: ${species || "not available"}${riskLine}
+        Crop GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
+        Crop Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
+        Crop genera: ${genera || "not available"}<br>
+        Crop hotspot species: ${species || "not available"}${riskLine}
       `);
     },
   });
@@ -377,8 +377,8 @@ function makeSuggestedSiteLayer(layerDef, layerKey) {
         <strong>${layerDef.label}</strong><br>
         Center: ${p.center_lat}, ${p.center_lon}<br>
         Score: ${(p.score || 0).toFixed(3)}<br>
-        Vegetable GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
-        Vegetable Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
+        Crop GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
+        Crop Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
         Temperature change: ${temp}<br>
         Rainfall change: ${rain}<br>
         Hotspot species: ${species || "not available"}
@@ -424,7 +424,7 @@ function buildWeightedSuggestedLayerDef() {
     scoreMaps[key] = new Map((layers[key]?.geojson?.features || []).map(feature => [featureKey(feature), feature.properties.score || 0]));
   }
   return {
-    label: "Weighted vegetable collection priority",
+    label: "Weighted crop collection priority",
     description: totalWeight
       ? `Weighted score: GBIF gap ${weights.gbif_genesys_gap.toFixed(2)}, temperature ${weights.temp_genesys_gap.toFixed(2)}, rainfall ${weights.rain_extreme_genesys_gap.toFixed(2)}.`
       : "Weighted score is zero because all weights are set to 0.",
@@ -476,14 +476,14 @@ function makeWeightedSuggestedLayer(layerDef) {
       const p = feature.properties;
       const species = (p.top_species || []).slice(0, 6).map(row => `${row[0]} (${fmt.format(row[1])})`).join(", ");
       layer.bindPopup(`
-        <strong>Weighted vegetable collection priority</strong><br>
+        <strong>Weighted crop collection priority</strong><br>
         Center: ${p.center_lat}, ${p.center_lon}<br>
         Combined score: ${(p.score || 0).toFixed(3)}<br>
         GBIF gap score: ${(p.gbif_gap_score || 0).toFixed(3)}<br>
         Temperature score: ${(p.temperature_score || 0).toFixed(3)}<br>
         Rainfall score: ${(p.rainfall_score || 0).toFixed(3)}<br>
-        Vegetable GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
-        Vegetable Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
+        Crop GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
+        Crop Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
         Hotspot species: ${species || "not available"}
       `);
     },
@@ -602,8 +602,8 @@ function makeClimateRiskLayer(rows) {
         <strong>Climate risk collection site</strong><br>
         Center: ${p.center_lat}, ${p.center_lon}<br>
         ${changeLine}<br>
-        Vegetable GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
-        Vegetable Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
+        Crop GBIF: ${fmt.format(p.gbif_records)} records, ${fmt.format(p.gbif_species)} species<br>
+        Crop Genesys in same grid: ${fmt.format(p.genesys_accessions)} accessions<br>
         Hotspot species: ${species || "not available"}
       `);
     },
@@ -743,8 +743,8 @@ function downloadCropTable() {
   if (window.XLSX) {
     const sheet = XLSX.utils.json_to_sheet(rows);
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, sheet, "Recommended vegetables");
-    XLSX.writeFile(book, `recommended_vegetable_species_${APP_VERSION}.xlsx`);
+    XLSX.utils.book_append_sheet(book, sheet, "Recommended crops");
+    XLSX.writeFile(book, `recommended_crop_species_${APP_VERSION}.xlsx`);
     return;
   }
   const headers = Object.keys(rows[0] || {});
@@ -755,7 +755,7 @@ function downloadCropTable() {
   const blob = new Blob([`<table>${htmlRows}</table>`], { type: "application/vnd.ms-excel;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `recommended_vegetable_species_${APP_VERSION}.xls`;
+  link.download = `recommended_crop_species_${APP_VERSION}.xls`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -823,7 +823,7 @@ function downloadSiteTable() {
     const sheet = XLSX.utils.json_to_sheet(rows);
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Weighted priority sites");
-    XLSX.writeFile(book, `weighted_vegetable_collection_sites_${APP_VERSION}.xlsx`);
+    XLSX.writeFile(book, `weighted_crop_collection_sites_${APP_VERSION}.xlsx`);
     return;
   }
   const headers = Object.keys(rows[0] || {});
@@ -834,7 +834,7 @@ function downloadSiteTable() {
   const blob = new Blob([`<table>${htmlRows}</table>`], { type: "application/vnd.ms-excel;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = `weighted_vegetable_collection_sites_${APP_VERSION}.xls`;
+  link.download = `weighted_crop_collection_sites_${APP_VERSION}.xls`;
   link.click();
   URL.revokeObjectURL(link.href);
 }
