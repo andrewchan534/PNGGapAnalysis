@@ -118,6 +118,16 @@ body {
   scrollbar-gutter: stable;
 }
 
+.priority-group + .priority-group {
+  margin-top: 12px;
+}
+
+.priority-group h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .priority-species-list .toggle {
   align-items: flex-start;
 }

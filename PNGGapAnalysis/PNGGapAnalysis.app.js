@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.10.20-crop-labels";
+const APP_VERSION = "2026.11.05-spc-list";
 
 const state = {
   summary: null,
@@ -210,12 +210,15 @@ function buildPriorityDataset() {
 function populatePrioritySpecies() {
   const lists = [
     { names: state.prioritySpecies.worldveg_taxa, container: "prioritySpeciesList", selector: ".priority-species-option", css: "priority-species-option", select: "selectAllPrioritySpecies", clear: "clearPrioritySpecies" },
-    { names: state.prioritySpecies.cepact_taxa, container: "cepactTaxaList", selector: ".cepact-taxon-option", css: "cepact-taxon-option", select: "selectAllCepactTaxa", clear: "clearCepactTaxa" },
+    { names: state.prioritySpecies.cepact_taxa, groups: state.prioritySpecies.cepact_groups, container: "cepactTaxaList", selector: ".cepact-taxon-option", css: "cepact-taxon-option", select: "selectAllCepactTaxa", clear: "clearCepactTaxa" },
     { names: state.prioritySpecies.nari_taxa, container: "nariTaxaList", selector: ".nari-taxon-option", css: "nari-taxon-option", select: "selectAllNariTaxa", clear: "clearNariTaxa" },
   ];
   for (const list of lists) {
-    document.getElementById(list.container).innerHTML = list.names.map(name =>
+    const renderOptions = names => names.map(name =>
       `<label class="toggle"><input class="${list.css}" type="checkbox" value="${name}"><span><i>${name}</i></span></label>`).join("");
+    document.getElementById(list.container).innerHTML = list.groups?.length
+      ? list.groups.map(group => `<div class="priority-group" role="group" aria-label="${group.label}"><h3>${group.label}</h3>${renderOptions(group.taxa)}</div>`).join("")
+      : renderOptions(list.names);
   }
   const refresh = () => {
     state.selectedPrioritySpecies = new Set([...document.querySelectorAll(".priority-species-option:checked")].map(input => input.value));
@@ -225,7 +228,7 @@ function populatePrioritySpecies() {
     document.getElementById("prioritySpeciesStatus").textContent = state.selectedPrioritySpecies.size
       ? `${state.selectedPrioritySpecies.size} priority species selected.` : "No priority species selected.";
     document.getElementById("cepactTaxaStatus").textContent = state.selectedCepactTaxa.size
-      ? `${state.selectedCepactTaxa.size} CePaCT taxa selected.` : "No CePaCT taxa selected.";
+      ? `${state.selectedCepactTaxa.size} SPC-CePaCT taxa selected.` : "No SPC-CePaCT taxa selected.";
     document.getElementById("nariTaxaStatus").textContent = state.selectedNariTaxa.size
       ? `${state.selectedNariTaxa.size} PNG NARI taxa selected.` : "No PNG NARI taxa selected.";
     if (hasPrioritySelection()) document.getElementById("toggleGbif").checked = true;

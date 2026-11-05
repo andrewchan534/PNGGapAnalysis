@@ -1,5 +1,16 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
+## SPC-CePaCT List Update (2026-11-05)
+
+- Updated SPC-CePaCT to the SPC column of the supplied
+  `20261012 PNG collecting wishlist-SPC-CePaCT.xlsx`, Sheet1!E1:G21.
+- Preserved source order and two groups: five First Priority and fifteen
+  Second Priority taxa. Added Ipomoea aquatica and Psophocarpus tetragonolobus.
+- Removed author strings for matching, including authors attached to species
+  epithets. sp. and spp. both use whole-genus selection. No synonym expansion.
+- WorldVeg and PNG NARI lists, three-list union semantics, scoring, the GBIF
+  300-cell shortlist and the Indonesia border setback remain in place.
+
 ## Preview v2026.10.13.2
 
 - Added 13 PNG NARI priority taxa; WorldVeg, CePaCT and NARI selections use a
