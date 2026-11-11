@@ -1,4 +1,4 @@
-const APP_VERSION = "2026.11.05-spc-list";
+const APP_VERSION = "2026.11.11-nari-list";
 
 const state = {
   summary: null,
@@ -126,7 +126,7 @@ function priorityFeature(lat0, lon0, properties) {
 function buildPriorityDataset() {
   const species = state.prioritySpecies.species.filter(item => state.selectedPrioritySpecies.has(item.name)
     || state.selectedCepactTaxa.has(item.name) || state.selectedCepactTaxa.has(`${item.name.split(" ")[0]} spp.`)
-    || state.selectedNariTaxa.has(item.name));
+    || state.selectedNariTaxa.has(item.name) || state.selectedNariTaxa.has(`${item.name.split(" ")[0]} spp.`));
   const gbif = new Map();
   const genesys = new Map();
   const climate = new Map(state.prioritySpecies.climate_cells.map(cell => [`${cell.lat0},${cell.lon0}`, cell]));

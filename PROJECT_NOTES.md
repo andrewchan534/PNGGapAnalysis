@@ -1,5 +1,11 @@
 # PNG Biodiversity and Genebank Gap Explorer
 
+## PNG NARI List Update (2026-11-11)
+
+Added Ficus dammaropsis, Saccharum spp. (whole-genus selection), Pandanus
+conoideus, Carica papaya and Passiflora ligularis to the PNG NARI list.
+The 18 choices retain deduplication across institutional lists.
+
 ## SPC-CePaCT List Update (2026-11-05)
 
 - Updated SPC-CePaCT to the SPC column of the supplied
